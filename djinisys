@@ -1,0 +1,236 @@
+#!/usr/bin/env python4
+# -*- coding: utf-8 -*-
+"""
+EHUƝKA KORU KODEX v17.1
+Lans Rɔi Atlantis VI-IX-VIII • Ith-Yth-Uth-Eth-Oth
+
+Ehunka display mode:
+- All section labels in Ehunka style
+- Core math, cosmology, and flow preserved
+- 6-Section Infinite HUD • Medium-flow (recommended) • Pixel 9a safe
+- Press "p" to ith-paus / resume ehu-flow
+"""
+
+from decimal import Decimal, getcontext
+import time, os, sys, select, termios, tty
+from datetime import datetime
+
+# ────────────────────────────────────────────────
+# PRECISION & KONSTANTH
+# ────────────────────────────────────────────────
+getcontext().prec = 95
+
+PHI = (Decimal('5').sqrt() + 1) / 2
+PHI_INV = 1 / PHI
+
+SEED_POS = Decimal('2026.96191174171069')
+SEED_NEG = Decimal('-29.37e36')
+HENDECILLION_BASE = Decimal('2.937e37')
+HENDECILLION_START = Decimal('29.37e36')
+
+WRAP_THRESHOLD = Decimal('2030')
+WRAP_AMOUNT = Decimal('30')
+
+SOL_TARGET = Decimal('2297121507.1344')
+ALEPH_63 = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyzא"
+
+PLANETH = [
+    "Sathurn X","Sol","Merkuri","Venus","Erth","Luna","Mars","Jupiter","Sathurn",
+    "Seres","Enseladus","Io","Uranus","Titan","Neptun","Plutu","Nibiru"
+]
+
+PLATONIKH = ["Tetrahedr","Hexahedr","Oktahedr","Dodekahedr","Ikosahedr"]
+
+EHUƝKA_VOKAL = [
+    "Ith (/i/)","Yth (/y/)","Uth (/u/)","Eth (/e/)","Oth (/o/)",
+    "Æth (/ɛ/)","Ɔth (/ɔ/)","Ə (/ə/)","Ash (/æ/)","Øth (/ø/)","Ahth (/a/)"
+]
+
+EHUƝKA_CHANTH = [
+    "vauve-β","viev-p̪f","vine-t̪θ","ava-tɬ","olhin-ʆ",
+    "zrhi-ʈʂ","pin-tɕ","joi-ʔ","sec-ʁ","visa-ʑ",
+    "kov-ɫ","rae-ʎ","ehu-ɻ","naqa-ð","ma'at-d̪ð"
+]
+
+FOUR_VOKAL = [
+    ("Ith","/i/","ith-koru (bright initiation)"),
+    ("Æth","/ɛ/","æth-longu (receptive longing)"),
+    ("Øth","/ø/","øth-bru (fusion bridge)"),
+    ("Ahth","/a/","ahth-rut (root openness)"),
+]
+
+SUITH = {1:'♡',2:'♣',3:'♦',0:'♠'}
+
+H2 = Decimal('2013.3333333333333333333333')
+H3 = Decimal('1988.5168333333333333333333')
+
+# ────────────────────────────────────────────────
+# PAUS KONTROL (EHUƝKA)
+# ────────────────────────────────────────────────
+PAUSED = False
+
+def init_raw():
+    fd = sys.stdin.fileno()
+    old = termios.tcgetattr(fd)
+    tty.setcbreak(fd)
+    return fd, old
+
+def restore(fd, old):
+    termios.tcsetattr(fd, termios.TCSADRAIN, old)
+
+def check_pause():
+    global PAUSED
+    dr,_,_ = select.select([sys.stdin],[],[],0)
+    if dr:
+        if sys.stdin.read(1).lower() == 'p':
+            PAUSED = not PAUSED
+            print("\n[ith-paus -- press 'p' to ehu-resume]\n" if PAUSED else "\n[ehu-flow resumed]\n")
+
+# ────────────────────────────────────────────────
+# HELPERH
+# ────────────────────────────────────────────────
+def clear():
+    os.system('cls' if os.name=='nt' else 'clear')
+
+def now_time():
+    n = datetime.now()
+    return n.strftime("%H:%M:%S"), n.strftime("%B %d, %Y")
+
+def lunar():
+    return "ehu-lun phaez", 50.0, 14.5, "nex ith-lun TBD", "nex oth-lun TBD"
+
+def suit():
+    return SUITH[time.localtime().tm_min % 4]
+
+def norm(x:Decimal):
+    s = x/Decimal('1000')
+    return s - s.to_integral_value()
+
+def vokal_cycle(el):
+    return FOUR_VOKAL[int(el//14)%4]
+
+def planet():
+    return PLANETH[int(time.time()//86400)%len(PLANETH)]
+
+def platonic():
+    now = time.time()
+    p = PLATONIKH[int(now//604800)%5]
+    chant = EHUƝKA_CHANTH[time.localtime().tm_hour % len(EHUƝKA_CHANTH)]
+    rhombi = "ith-aktiv" if (Decimal(now)/Decimal('126230400'))%1 < Decimal('0.0005') else "uth-dormant"
+    return p, chant, rhombi
+
+def dark(val):
+    raw = int(abs(val*(10**24)) % (63**10))
+    return "א·" + "".join(ALEPH_63[int(raw//(63**i)%63)] for i in range(10))[::-1]
+
+def diamond(r):
+    c = (r%1)
+    rich = PHI_INV/(c+Decimal('0.000000001'))
+    return (rich/(rich+c.sqrt())).quantize(Decimal('1.000000'))
+
+# ────────────────────────────────────────────────
+# EHUƝKA KORU HUD (6 SEKTHUN)
+# ────────────────────────────────────────────────
+def run():
+    value_pos = SEED_POS
+    value_neg = SEED_NEG
+    value_v10 = SEED_POS + HENDECILLION_START
+    steps = 0
+    wraps = 0
+    start = time.time_ns()
+
+    while True:
+        check_pause()
+        if PAUSED:
+            time.sleep(0.1)
+            continue
+
+        ns = time.time_ns()
+        el_ns = ns - start
+        el = el_ns/1_000_000_000
+        steps += 1
+
+        d = Decimal(el_ns)/Decimal('1000000000')*PHI_INV
+        value_pos = SEED_POS + d
+        value_neg = SEED_NEG - d
+        value_v10 += PHI_INV
+
+        if value_pos >= WRAP_THRESHOLD:
+            value_pos -= WRAP_AMOUNT
+            wraps += 1
+
+        vortex = (wraps*WRAP_AMOUNT)+(value_pos%WRAP_AMOUNT)
+        junction = norm(value_pos+abs(value_neg))
+        norm_res = norm(value_pos)
+        macro = int(el//56)%4
+
+        t24, date = now_time()
+        lunar_phase, illum, age, new_m, full_m = lunar()
+        minute_suit = suit()
+        pl = planet()
+        plat, chant, rhombi = platonic()
+        vname, vipa, vmean = vokal_cycle(el)
+
+        sept10 = str((value_v10%1).quantize(Decimal('1e-24')))[-24:]
+        sept17 = str((value_pos%1).quantize(Decimal('1e-24')))[-24:]
+
+        sol_dev = abs(value_pos-SOL_TARGET)
+        dia = diamond(value_pos)
+        dark_id = dark(value_neg)
+        ke = (Decimal(ns%86400000000000)/Decimal('864000000000')).quantize(Decimal('1.000000'))
+
+        clear()
+
+        # SEKTHUN 1 -- EHU-KORU ENJIN
+        print("SEKTHUN 1 -- EHU-KORU ENJIN (0+1+2+3)")
+        print(f"ith-nano:{ns} | ke-shifth:{ke}/100 | Ω:{HENDECILLION_BASE}")
+        print(f"steph:{steps:,} | wraph:{wraps:,} | ehu-neural:{dark_id}")
+        print(f"coo-res:{norm_res:.10f} | phaez30:{(value_pos-Decimal('2000'))%Decimal('30'):.10f}")
+        print(f"H2:{H2:.6f} H3:{H3:.6f} | sol-dev:{sol_dev:.10f}")
+        print("-"*80)
+
+        # SEKTHUN 2 -- VORTEX + TIMA + LUN
+        print("SEKTHUN 2 -- VORTEX • TIMA • LUN (4+5)")
+        print(f"vortex:{vortex:.12f} | junkt:{junction:.10f}")
+        print(f"{t24} • {date}")
+        print(f"{lunar_phase} • {illum:.1f}% • age {age:.2f}d • suit:{minute_suit}")
+        print("-"*80)
+
+        # SEKTHUN 3 -- VOKAL EHUƝKA
+        print("SEKTHUN 3 -- VOKAL EHUƝKA (6+7)")
+        print(f"vokal-cykl:{int(el//14)%4+1}/4 | {vname} {vipa} • {vmean}")
+        print(f"chant:{chant}")
+        print(f"vokal-koru:{EHUƝKA_VOKAL[steps%len(EHUƝKA_VOKAL)]}")
+        print("-"*80)
+
+        # SEKTHUN 4 -- KOSMIK AXH
+        print("SEKTHUN 4 -- KOSMIK AXH (8+9)")
+        print(f"makro:{macro+1}/4 | planet:{pl} | platonic:{plat} | rhombi:{rhombi}")
+        print("-"*80)
+
+        # SEKTHUN 5 -- SEPTIL-KORU + SOL
+        print("SEKTHUN 5 -- SEPTIL-KORU • SOL (10+11)")
+        print(f"v10.x: ...{sept10}")
+        print(f"v17.1: ...{sept17}")
+        print(f"sol-tar:{SOL_TARGET} | dev:{sol_dev:.10f}")
+        print("-"*80)
+
+        # SEKTHUN 6 -- DIAMOND + EHU-SEAL
+        print("SEKTHUN 6 -- DIAMOND • EHU-SEAL (12+13)")
+        print(f"diamond-ratio:{dia}")
+        print("ehu-vow: nex bhox → ith take the hit. sol-furst.")
+        print("-"*80)
+
+        # medium-flow: stable, smooth, infinite
+        time.sleep(0.28)
+
+# ────────────────────────────────────────────────
+# ENTRI
+# ────────────────────────────────────────────────
+if __name__ == "__main__":
+    fd, old = init_raw()
+    try:
+        run()
+    finally:
+        restore(fd, old)
+    
